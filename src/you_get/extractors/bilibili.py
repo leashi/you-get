@@ -287,6 +287,20 @@ class Bilibili(VideoExtractor):
 
             # get danmaku
             self.danmaku = get_content('http://comment.bilibili.com/%s.xml' % cid)
+            
+            # get subriptext
+            srt_url = 'https://api.bilibili.com/x/web-interface/view?aid=%s&cid=%s' % (avid, cid)
+            srt_content = get_content(srt_url, headers=self.bilibili_headers())
+            srt_info = json.loads(srt_content)
+            
+            srt_json = []
+            lang_count = len(srt_info['data']['subtitle']['list'])
+            for i in range(lang_count) :
+                lang_srt_url = srt_info['data']['subtitle']['list'][i]['subtitle_url']
+                temp = get_content(lang_srt_url, headers=self.bilibili_headers())
+                srt_json.append(temp)
+            
+            self.subriptext = self.srt_json_to_srt(srt_json)
 
         # bangumi
         elif sort == 'bangumi':
@@ -761,6 +775,65 @@ class Bilibili(VideoExtractor):
                 url = 'https://www.bilibili.com/audio/au%s' % song['id']
                 self.__class__().download_by_url(url, **kwargs)
 
+    def srt_json_to_srt(self, srt_jsons):
+        json_objs = []
+        for srt_json in srt_jsons :
+            json_objs.append(json.loads(srt_json))
+
+        srt = []
+        index = 0
+        for srt_obj in json_objs :
+            body = srt_obj['body']
+            for i in range(len(body)) :
+                from_time = round(body[i]['from'], 3)
+                to_time = round(body[i]['to'], 3)
+                content = body[i]['content']
+
+                from_str = time.strftime("%H:%M:%S", time.gmtime(from_time)) + ',' + self.extract_millisecond(from_time)
+                to_str = time.strftime("%H:%M:%S", time.gmtime(to_time)) + ',' + self.extract_millisecond(to_time)
+
+                key_str = from_str + ' ' + '-->' + ' ' + to_str + '\n'
+                value_str = content + '\n'
+
+                if index == 0:
+                    srt_line = []
+                    srt_line.append(key_str)
+                    srt_line.append(value_str)
+
+                    srt.append(srt_line)
+                else :
+                    srt_line = srt[i]
+                    if srt_line[0] == key_str:
+                        srt_line[1] = srt_line[1] + value_str                    
+
+            index += 1
+        #
+        srt_str = ''
+        index = 1
+        for srt_line in srt:
+            srt_str += str(index) + '\n'
+            for item in srt_line:
+                srt_str += item
+            
+            srt_str += '\n'
+            index += 1
+
+        return srt_str
+        
+
+
+    def extract_millisecond(self, float_time):
+        millisecond = str(float_time).partition('.')[2]
+        if len(millisecond) == 0:
+            millisecond = '000'          #补齐三位小数
+
+        if len(millisecond) == 1:
+            millisecond = millisecond + '00'
+
+        if len(millisecond) == 2:
+            millisecond = millisecond + '0'
+
+        return millisecond                           #返回标准三位的毫秒数
 
 site = Bilibili()
 download = site.download_by_url

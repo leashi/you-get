@@ -35,6 +35,7 @@ class VideoExtractor():
         self.referer = None
         self.danmaku = None
         self.lyrics = None
+        self.subriptext = None
 
         if args:
             self.url = args[0]
@@ -264,6 +265,12 @@ class VideoExtractor():
                 print('Downloading {} ...\n'.format(filename))
                 with open(os.path.join(kwargs['output_dir'], filename), 'w', encoding='utf8') as fp:
                     fp.write(self.lyrics)
+                    
+            if self.subriptext is not None and not dry_run:
+                filename = '{}.srt'.format(get_filename(self.title))
+                print('Downloading {} ...\n'.format(filename))
+                with open(os.path.join(kwargs['output_dir'], filename), 'w', encoding='utf8') as fp:
+                    fp.write(self.subriptext)
 
             # For main_dev()
             #download_urls(urls, self.title, self.streams[stream_id]['container'], self.streams[stream_id]['size'])
